@@ -12,6 +12,8 @@ import StudentScreen from "./screens/StudentScreen";
 
 import BoxScreen from "./screens/BoxScreen";
 
+import PostsScreen from "./screens/PostsScreen";
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -33,7 +35,7 @@ export default function App() {
    // <ListScreen></ListScreen>
     // <StudentScreen></StudentScreen>
 
-    <BoxScreen></BoxScreen>
+    <PostsScreen></PostsScreen>
   );
 }
 

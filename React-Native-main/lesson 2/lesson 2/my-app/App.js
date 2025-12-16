@@ -14,6 +14,8 @@ import BoxScreen from "./screens/BoxScreen";
 
 import PostsScreen from "./screens/PostsScreen";
 
+import FetchChallenge from "./screens/FetchChallenge";
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -35,7 +37,9 @@ export default function App() {
    // <ListScreen></ListScreen>
     // <StudentScreen></StudentScreen>
 
-    <PostsScreen></PostsScreen>
+    // <PostsScreen></PostsScreen>
+
+    <FetchChallenge></FetchChallenge>
   );
 }
 

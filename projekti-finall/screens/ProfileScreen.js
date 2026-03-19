@@ -1,10 +1,12 @@
 import React, { useContext } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Title, Paragraph, Button, Avatar } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, Avatar, Switch, Text } from 'react-native-paper';
 import { AuthContext } from '../contexts/AuthContext';
+import { ThemeContext } from '../contexts/ThemeContext';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout } = useContext(AuthContext);
+  const { isDark, toggleTheme } = useContext(ThemeContext);
 
   const handleLogout = () => {
     logout();
@@ -30,6 +32,12 @@ const ProfileScreen = ({ navigation }) => {
       <Card style={styles.card}>
         <Card.Content>
           <Title>Account Settings</Title>
+
+          <View style={styles.settingRow}>
+            <Text>Dark Mode</Text>
+            <Switch value={isDark} onValueChange={toggleTheme} />
+          </View>
+
           <Button mode="outlined" onPress={() => {}} style={styles.button}>
             Edit Profile
           </Button>
@@ -68,6 +76,15 @@ const styles = StyleSheet.create({
   userInfo: {
     marginLeft: 20,
     flex: 1,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
   },
   button: {
     marginBottom: 10,

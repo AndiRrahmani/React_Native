@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, StyleSheet, FlatList, ScrollView } from 'react-native';
-import { Card, Title, Paragraph, Searchbar, Chip, Menu, Button } from 'react-native-paper';
+import { Card, Title, Paragraph, Searchbar, Chip, Menu, Button, FAB } from 'react-native-paper';
 import { cars } from '../data/cars';
+import { FavoritesContext } from '../contexts/FavoritesContext';
 
-const CarListScreen = ({ navigation }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+const CarListScreen = ({ navigation, route }) => {
+  const { isFavorite, toggleFavorite } = useContext(FavoritesContext);
+  const initialQuery = route?.params?.initialQuery ?? '';
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [filteredCars, setFilteredCars] = useState(cars);
   const [sortBy, setSortBy] = useState('price');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -66,17 +69,33 @@ const CarListScreen = ({ navigation }) => {
     applyFilters(searchQuery, sortBy, sortOrder, range);
   };
 
-  const renderCar = ({ item }) => (
-    <Card style={styles.carCard} onPress={() => navigation.navigate('CarDetail', { car: item })}>
-      <Card.Cover source={{ uri: item.images ? item.images[0] : item.image }} />
-      <Card.Content>
-        <Title>{item.year} {item.make} {item.model}</Title>
-        <Paragraph>Mileage: {item.mileage.toLocaleString()} miles</Paragraph>
-        <Paragraph>Color: {item.color}</Paragraph>
-        <Paragraph style={styles.price}>${item.price.toLocaleString()}</Paragraph>
-      </Card.Content>
-    </Card>
-  );
+  useEffect(() => {
+    applyFilters(searchQuery, sortBy, sortOrder, priceFilter);
+  }, []);
+
+  const renderCar = ({ item }) => {
+    const favorited = isFavorite(item.id);
+
+    return (
+      <Card style={styles.carCard} onPress={() => navigation.navigate('CarDetail', { car: item })}>
+        <Card.Cover source={{ uri: item.images ? item.images[0] : item.image }} />
+        <Card.Content>
+          <Title>{item.year} {item.make} {item.model}</Title>
+          <Paragraph>Mileage: {item.mileage.toLocaleString()} miles</Paragraph>
+          <Paragraph>Color: {item.color}</Paragraph>
+          <Paragraph style={styles.price}>${item.price.toLocaleString()}</Paragraph>
+        </Card.Content>
+        <Card.Actions>
+          <FAB
+            icon={favorited ? 'heart' : 'heart-outline'}
+            size="small"
+            onPress={() => toggleFavorite(item.id)}
+            style={styles.favoriteFab}
+          />
+        </Card.Actions>
+      </Card>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -159,6 +178,10 @@ const styles = StyleSheet.create({
   },
   carCard: {
     marginBottom: 15,
+  },
+  favoriteFab: {
+    backgroundColor: '#e74c3c',
+    marginLeft: 'auto',
   },
   price: {
     fontSize: 18,

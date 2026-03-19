@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Alert, ScrollView, Dimensions } from 'react-native';
-import { Card, Title, Paragraph, Button, Checkbox, Divider, ProgressBar } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, Checkbox, Divider, Dialog, Portal, TextInput, IconButton } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cars } from '../data/cars';
 
-const CompareScreen = ({ navigation }) => {
+const SAVED_COMPARISONS_KEY = 'savedComparisons';
+
+const CompareScreen = ({ navigation, route }) => {
   const [selectedCars, setSelectedCars] = useState([]);
   const [showComparison, setShowComparison] = useState(false);
+  const [savedComparisons, setSavedComparisons] = useState([]);
+  const [pendingComparisonId, setPendingComparisonId] = useState(null);
+  const [saveDialogVisible, setSaveDialogVisible] = useState(false);
+  const [saveName, setSaveName] = useState('');
 
   const toggleCarSelection = (car) => {
     if (selectedCars.find(c => c.id === car.id)) {
@@ -84,6 +91,130 @@ const CompareScreen = ({ navigation }) => {
     }
     setShowComparison(true);
   };
+
+  const loadSavedComparisons = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(SAVED_COMPARISONS_KEY);
+      if (stored) {
+        setSavedComparisons(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.warn('Error loading saved comparisons', error);
+    }
+  };
+
+  const persistSavedComparisons = async (next) => {
+    try {
+      await AsyncStorage.setItem(SAVED_COMPARISONS_KEY, JSON.stringify(next));
+    } catch (error) {
+      console.warn('Error saving comparisons', error);
+    }
+  };
+
+  useEffect(() => {
+    if (route?.params?.loadComparisonId) {
+      setPendingComparisonId(route.params.loadComparisonId);
+    }
+
+    if (route?.params?.selectedIds) {
+      const carsToCompare = cars.filter((car) => route.params.selectedIds.includes(car.id));
+      if (carsToCompare.length === 2) {
+        setSelectedCars(carsToCompare);
+        setShowComparison(true);
+      }
+    }
+
+    loadSavedComparisons();
+  }, []);
+
+  useEffect(() => {
+    if (!pendingComparisonId || savedComparisons.length === 0) return;
+    const record = savedComparisons.find((item) => item.id === pendingComparisonId);
+    if (record) {
+      loadSavedComparison(record);
+    }
+    setPendingComparisonId(null);
+  }, [pendingComparisonId, savedComparisons]);
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+  };
+
+  const openSaveDialog = () => {
+    if (selectedCars.length !== 2) {
+      Alert.alert('Save Comparison', 'Please select exactly 2 cars before saving a comparison.');
+      return;
+    }
+    setSaveName(`Comparison ${new Date().toLocaleDateString()}`);
+    setSaveDialogVisible(true);
+  };
+
+  const saveComparison = async () => {
+    if (saveName.trim() === '') {
+      return;
+    }
+
+    const record = {
+      id: Date.now().toString(),
+      name: saveName.trim(),
+      timestamp: Date.now(),
+      cars: selectedCars.map((car) => car.id),
+    };
+
+    const next = [record, ...savedComparisons];
+    setSavedComparisons(next);
+    await persistSavedComparisons(next);
+    setSaveDialogVisible(false);
+  };
+
+  const confirmDeleteSavedComparison = (record) => {
+    Alert.alert(
+      'Delete Saved Comparison',
+      `Are you sure you want to delete "${record.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteSavedComparison(record.id) },
+      ]
+    );
+  };
+
+  const deleteSavedComparison = async (id) => {
+    const next = savedComparisons.filter((item) => item.id !== id);
+    setSavedComparisons(next);
+    await persistSavedComparisons(next);
+  };
+
+  const loadSavedComparison = (record) => {
+    const carsToCompare = cars.filter((car) => record.cars.includes(car.id));
+    if (carsToCompare.length === 2) {
+      setSelectedCars(carsToCompare);
+      setShowComparison(true);
+    }
+  };
+
+  const renderSavedItem = ({ item }) => (
+    <View style={styles.savedRow}>
+      <View style={styles.savedInfo}>
+        <Text style={styles.savedName}>{item.name}</Text>
+        <Text style={styles.savedMeta}>{formatTimestamp(item.timestamp)}</Text>
+      </View>
+      <View style={styles.savedActions}>
+        <IconButton
+          icon="upload"
+          size={20}
+          onPress={() => loadSavedComparison(item)}
+          accessibilityLabel={`Load ${item.name}`}
+        />
+        <IconButton
+          icon="delete"
+          size={20}
+          onPress={() => confirmDeleteSavedComparison(item)}
+          accessibilityLabel={`Delete ${item.name}`}
+        />
+      </View>
+    </View>
+  );
 
   if (showComparison && selectedCars.length === 2) {
     const [car1, car2] = selectedCars;
@@ -224,21 +355,65 @@ const CompareScreen = ({ navigation }) => {
     );
   }
 
+  const renderSavedHeader = () => (
+    <View style={styles.savedHeader}>
+      <Text style={styles.savedTitle}>Saved Comparisons</Text>
+      <Text style={styles.savedHint}>{savedComparisons.length ? 'Tap load to view' : 'No saved comparisons yet.'}</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Compare Cars</Text>
       <Text style={styles.subtitle}>Select up to 2 cars to compare</Text>
+
+      {savedComparisons.length > 0 && (
+        <FlatList
+          data={savedComparisons}
+          keyExtractor={(item) => item.id}
+          renderItem={renderSavedItem}
+          ListHeaderComponent={renderSavedHeader}
+          contentContainerStyle={styles.savedList}
+          style={styles.savedListWrapper}
+        />
+      )}
+
       <FlatList
         data={cars}
         renderItem={renderCar}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContainer}
       />
+
       {selectedCars.length === 2 && (
-        <Button mode="contained" onPress={compareCars} style={styles.compareButton}>
-          Compare Selected Cars
-        </Button>
+        <View style={styles.actionRow}>
+          <Button mode="contained" onPress={compareCars} style={styles.compareButton}>
+            Compare Selected Cars
+          </Button>
+          <Button mode="outlined" onPress={openSaveDialog} style={styles.saveButton}>
+            Save Comparison
+          </Button>
+        </View>
       )}
+
+      <Portal>
+        <Dialog visible={saveDialogVisible} onDismiss={() => setSaveDialogVisible(false)}>
+          <Dialog.Title>Save Comparison</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Name"
+              value={saveName}
+              onChangeText={setSaveName}
+              mode="outlined"
+              placeholder="e.g. My Weekend Picks"
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setSaveDialogVisible(false)}>Cancel</Button>
+            <Button onPress={saveComparison}>Save</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 };
@@ -297,6 +472,60 @@ const styles = StyleSheet.create({
   },
   compareButton: {
     margin: 20,
+  },
+  saveButton: {
+    margin: 20,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  savedListWrapper: {
+    marginBottom: 15,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 12,
+  },
+  savedHeader: {
+    marginBottom: 10,
+  },
+  savedTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  savedHint: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  savedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  savedInfo: {
+    flex: 1,
+  },
+  savedName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2c3e50',
+  },
+  savedMeta: {
+    fontSize: 11,
+    color: '#7f8c8d',
+  },
+  savedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  savedList: {
+    paddingBottom: 10,
   },
   // Comparison view styles
   comparisonContainer: {

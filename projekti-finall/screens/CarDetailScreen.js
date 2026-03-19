@@ -1,10 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Card, Title, Paragraph, Button, Chip, FAB, Avatar } from 'react-native-paper';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FavoritesContext } from '../contexts/FavoritesContext';
 
 const CarDetailScreen = ({ route, navigation }) => {
   const { car } = route.params;
+  const { isFavorite, toggleFavorite, addRecentlyViewed } = useContext(FavoritesContext);
+
+  useEffect(() => {
+    addRecentlyViewed(car);
+  }, [car, addRecentlyViewed]);
+
+  const favorited = isFavorite(car.id);
 
   return (
     <ScrollView style={styles.container}>
@@ -51,6 +58,15 @@ const CarDetailScreen = ({ route, navigation }) => {
         </Card.Content>
       </Card>
       <View style={styles.buttonContainer}>
+        <Button
+          mode={favorited ? 'contained' : 'outlined'}
+          icon={favorited ? 'heart' : 'heart-outline'}
+          onPress={() => toggleFavorite(car.id)}
+          style={styles.button}
+        >
+          {favorited ? 'Remove from Favorites' : 'Add to Favorites'}
+        </Button>
+
         <Button mode="contained" onPress={() => {}} style={styles.button}>
           Schedule Test Drive
         </Button>

@@ -1,10 +1,12 @@
 import React, { useContext } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme as NavigationDefaultTheme, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { Provider as PaperProvider } from 'react-native-paper';
+import { Provider as PaperProvider, DefaultTheme as PaperDefaultTheme, DarkTheme as PaperDarkTheme } from 'react-native-paper';
 import { AuthProvider, AuthContext } from './contexts/AuthContext';
+import { FavoritesProvider } from './contexts/FavoritesContext';
+import { ThemeProvider, ThemeContext } from './contexts/ThemeContext';
 import HomeScreen from './screens/HomeScreen';
 import CarListScreen from './screens/CarListScreen';
 import CarDetailScreen from './screens/CarDetailScreen';
@@ -54,23 +56,33 @@ function AuthNavigator() {
 
 function AppNavigator() {
   const { user, loading } = useContext(AuthContext);
+  const { isDark } = useContext(ThemeContext);
 
   if (loading) {
     return null; // Or a loading screen
   }
 
-  return user ? <DrawerNavigator /> : <AuthNavigator />;
+  const combinedPaperTheme = isDark ? PaperDarkTheme : PaperDefaultTheme;
+  const combinedNavTheme = isDark ? NavigationDarkTheme : NavigationDefaultTheme;
+
+  return (
+    <PaperProvider theme={combinedPaperTheme}>
+      <NavigationContainer theme={combinedNavTheme}>
+        {user ? <DrawerNavigator /> : <AuthNavigator />}
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+      </NavigationContainer>
+    </PaperProvider>
+  );
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <PaperProvider>
-        <NavigationContainer>
+      <ThemeProvider>
+        <FavoritesProvider>
           <AppNavigator />
-          <StatusBar style="light" />
-        </NavigationContainer>
-      </PaperProvider>
+        </FavoritesProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }
